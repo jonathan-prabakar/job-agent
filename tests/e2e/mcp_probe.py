@@ -8,7 +8,7 @@ import threading
 
 
 def inspect_forms(ws, port):
-    command = ["npx", "-y", "chrome-devtools-mcp@1.10.1",
+    command = ["npx", "--prefer-offline", "-y", "chrome-devtools-mcp@1.10.1",
                f"--browser-url=http://127.0.0.1:{port}",
                "--no-usage-statistics", f"--workspace={ws}"]
     lines = queue.Queue()

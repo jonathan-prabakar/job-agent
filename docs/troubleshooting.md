@@ -9,7 +9,7 @@ Common problems during runs and how to fix them.
 | "Allow" pops up for every job | Expected. Each job opens its own connection. Click Allow, or turn on auto-allow on a Mac |
 | Resume upload fails with "not within any of the configured workspace roots" | You set a custom `JOB_AGENT_HOME`. The agent copies the PDF to a temp folder and retries. If it still fails, set `--workspace=` to your folder |
 | Scan says "checkpoint not found" or reads old jobs | Your JobRight feed is not sorted by Most Recent. Sort it, then ask your agent to "recapture my JobRight feed" |
-| Jobs run one at a time | Expected in Codex. For Claude Code parallel fills, setup copies the isolated applier file to `~/.claude/agents/` |
+| Jobs run one at a time | Expected in direct Codex chats. For Codex parallel mode, use the native runner with `codex.execution: parallel` and a dedicated profile. For Claude Code parallel fills, setup copies the isolated applier file to `~/.claude/agents/` |
 | Codex CLI test cannot open a page because approval policy is `never` | Use the opt-in localhost runner in `tests/e2e/codex_run.py`; it authorizes only its test browser server for this invocation. For real interactive use, configure tool approvals in your client |
 | A scheduled run stops at the first prompt | Headless runs need tools pre-approved. Copy the allow-list from [skills/job-run/SKILL.md](../skills/job-run/SKILL.md) |
 | Auto-allow clicks nothing | Grant Accessibility to the Python path that `enable` printed, and set Chrome's language to English |
@@ -20,3 +20,5 @@ Common problems during runs and how to fix them.
 First-time install problems (missing `node` or `python3`, JobRight sign-in) are in [getting-started.md](getting-started.md#if-something-goes-wrong).
 
 Still stuck? Open an issue with what you ran, what you expected and the exact error text. Leave out your name, email and resume.
+
+Codex native runs keep process logs under `state/codex-runs/`. A busy result means another run owns the lock. Do not delete an active runner's lock. A blocked result names missing configuration, a locked screen or the browser issue. For worker failures, inspect each worker's `stderr.log` and `validated-result.json`; keep its application tab open for the coordinator.

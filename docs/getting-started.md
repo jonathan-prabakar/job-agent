@@ -10,7 +10,7 @@ This page is for you if you have never set up a coding agent or a browser MCP. j
 - [What runs on its own](#what-runs-on-its-own)
 - [If something goes wrong](#if-something-goes-wrong)
 
-For Codex, start with [Codex setup](codex.md). Codex processes one job at a time; use the local mock ATS validation before a real dry run. The Claude-specific instructions below remain available for existing users.
+For Codex, start with [Codex setup](codex.md). Direct Codex chats process one job at a time; the native runner adds optional scheduling and isolated fill workers. Use the local mock ATS validation before a real dry run. The Claude-specific instructions below remain available for existing users.
 
 ## 1. Install the tools
 
@@ -39,7 +39,7 @@ Use Chrome itself, on the stable channel. Edge, Brave and Arc are built on Chrom
 job-agent is a set of instructions for a coding agent, so you need one:
 
 - [Claude Code](https://claude.com/claude-code): job-agent is built for it. The plugin wires up the browser for you and runs several applications at once.
-- Codex, Cursor or [another agent that reads skills](https://github.com/vercel-labs/skills) can load the skills and run one job at a time. See [Codex setup and validation](codex.md); scheduling and parallel Codex workers remain on the roadmap.
+- Codex, Cursor or [another agent that reads skills](https://github.com/vercel-labs/skills) can load the skills and run one job at a time. See [Codex setup and validation](codex.md); see its native runner for opt-in scheduling and isolated fill workers.
 
 The agent's subscription or API usage is the real cost of job-agent. See the token question in the [FAQ](faq.md#what-does-it-cost-in-tokens).
 

@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "job_key": {"type": "string"},
+    "status": {"type": "string", "enum": ["filled", "parked"]},
+    "reason": {"type": "string"},
+    "tab_url": {"type": "string"},
+    "resume_path": {"type": "string"},
+    "report_path": {"type": "string"}
+  },
+  "required": ["job_key", "status", "reason", "tab_url", "resume_path", "report_path"],
+  "additionalProperties": false
+}

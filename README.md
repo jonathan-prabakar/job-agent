@@ -31,7 +31,7 @@ job-agent reads new postings from your JobRight feed, builds a one-page resume f
 
 ## Setup
 
-**Codex:** this fork includes skill discovery, runtime-aware setup and sequential execution. Open the clone as a Codex project and follow [Codex setup](docs/codex.md). Use the local mock ATS checks before a real dry run. Scheduling and parallel Codex workers are later migration milestones. The instructions below describe the existing Claude Code path.
+**Codex:** this fork includes skill discovery, runtime-aware setup and sequential execution. Open the clone as a Codex project and follow [Codex setup](docs/codex.md). Use the local mock ATS checks before a real dry run. The native local runner also supports opt-in schedules and isolated fill workers. The instructions below describe the existing Claude Code path.
 
 You need a Mac, [Claude Code](https://claude.com/claude-code), Google Chrome 144 or later, Node.js 20.19 or later and Python 3.9 or later. New to any of these? [Getting started](docs/getting-started.md) installs each one.
 
@@ -126,7 +126,7 @@ Stuck? [Troubleshooting](docs/troubleshooting.md) · [FAQ](docs/faq.md)
 
 ## Roadmap
 
-Codex migration: skill discovery and setup first, then sequential browser workflow validation, then scheduling and isolated parallel workers. Cursor, Windows and Linux remain community-supported.
+Codex includes skill discovery, setup, sequential chats and an opt-in native runner for schedules and isolated fill workers. Broader real ATS coverage, Cursor, Windows and Linux remain community-supported.
 
 ---
 

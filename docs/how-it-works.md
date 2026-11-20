@@ -70,7 +70,7 @@ The gate prints `VERDICT: PASS` only when the content check and the layout check
 
 ## Browser
 
-Codex uses one browser connection and fills one job at a time. It performs a fresh live read-back before any guarded final click. It does not install Claude applier files. See [Codex setup and local validation](codex.md).
+Direct Codex chats use one browser connection and fill one job at a time. The opt-in native runner can use separate fill workers and a single final-review coordinator. It performs a fresh live read-back before any guarded final click. It does not install Claude applier files. See [Codex setup and local validation](codex.md).
 
 **Default: your own Chrome.** The agent works in the Chrome you already use, with your existing logins, through [chrome-devtools MCP](https://github.com/ChromeDevTools/chrome-devtools-mcp) and its `--autoConnect` option.
 
@@ -156,7 +156,7 @@ The trade-off: auto-submit saves you the review step, but a wrong answer, a bad 
 ## Scheduling
 
 - Claude Code, in a session: `/loop 4h /job-agent:run` repeats while the session is open.
-- A local scheduled task, or cron with a validated headless CLI such as `claude -p` (Codex scheduling is a later migration milestone). A cloud routine cannot reach your Chrome.
+- A local scheduled task, or cron with a validated headless CLI such as `claude -p` (for Codex use the native local runner in [Codex setup](codex.md)). A cloud routine cannot reach your Chrome.
 
 Each run takes a lock, so two runs never overlap; a lock older than 3 hours is from a hung run and is replaced. A run fills at most `browser.max_forms_per_run` forms (default 10) and leaves the rest queued. A locked screen or a browser that does not attach logs `BLOCKED` and stops; two blocked runs in a row send you a notification. Each run ends with `READY: <forms>`, `ALERT: <assessment, interview or offer>` or `NOTHING READY`, and a notification goes out only for the first two.
 
