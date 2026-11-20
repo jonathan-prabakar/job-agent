@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -40,16 +41,36 @@ def now_utc() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
 
 
-def take_lock(path: Path, stale_hours: float = 3, now: dt.datetime | None = None) -> dict:
+def take_lock(path: Path, stale_hours: float = 3, now: dt.datetime | None = None,
+              owner_token: str | None = None) -> dict:
     """mkdir is atomic: whoever creates the folder owns the run."""
     now = now or now_utc()
+    owner = {"started": now.isoformat()}
+    if owner_token:
+        owner.update(runner_token=owner_token, pid=os.getpid())
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
         path.mkdir()
     except FileExistsError:
         info = path / "owner.json"
         try:
-            started = dt.datetime.fromisoformat(json.loads(info.read_text(encoding="utf-8"))["started"])
+            previous = json.loads(info.read_text(encoding="utf-8"))
+            started = dt.datetime.fromisoformat(previous["started"])
+            pid = previous.get("pid")
+            if previous.get("runner_token") and isinstance(pid, int) and pid > 0:
+                if os.name == "posix":
+                    try:
+                        os.kill(pid, 0)
+                        active = True
+                    except ProcessLookupError:
+                        active = False
+                    except PermissionError:
+                        active = True
+                else:
+                    active = str(pid) in subprocess.run(
+                        ["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True).stdout
+                if active:
+                    return {"locked": False, "reason": "an active Codex runner holds the lock"}
         except (OSError, ValueError, KeyError):
             started = dt.datetime.fromtimestamp(path.stat().st_mtime, dt.timezone.utc)
         age_h = (now - started).total_seconds() / 3600
@@ -57,15 +78,26 @@ def take_lock(path: Path, stale_hours: float = 3, now: dt.datetime | None = None
             return {"locked": False, "reason": f"another run started {started.isoformat()} ({age_h:.1f}h ago) holds the lock"}
         shutil.rmtree(path, ignore_errors=True)
         path.mkdir()
-        (path / "owner.json").write_text(json.dumps({"started": now.isoformat()}), encoding="utf-8")
+        (path / "owner.json").write_text(json.dumps(owner), encoding="utf-8")
         return {"locked": True, "replaced_stale": True,
                 "reason": f"replaced a lock from {started.isoformat()} ({age_h:.1f}h old): the last run hung"}
-    (path / "owner.json").write_text(json.dumps({"started": now.isoformat()}), encoding="utf-8")
+    (path / "owner.json").write_text(json.dumps(owner), encoding="utf-8")
     return {"locked": True, "replaced_stale": False, "reason": "lock taken"}
 
 
 def release_lock(path: Path) -> None:
     shutil.rmtree(path, ignore_errors=True)
+
+
+def release_owned_lock(path: Path, owner_token: str) -> bool:
+    try:
+        owner = json.loads((path / "owner.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    if owner.get("runner_token") != owner_token:
+        return False
+    release_lock(path)
+    return True
 
 
 def screen_locked_from_ioreg(text: str) -> bool:

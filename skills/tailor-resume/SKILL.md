@@ -24,6 +24,8 @@ Every job gets its own folder: `<workspace>/resumes/tailored/<company>-<role>-<r
 - `<workspace>/reviews/<job_key>.md`: the review file (see Report)
 - `<workspace>/interview-prep/<job_key>-defense.md`: the defense sheet
 
+In Codex worker mode, the assigned output folder overrides all output destinations above: put reviews, defense sheets, sources, PDFs and gate images under it. Read the master and prior copies, but never modify them or a shared profile. Record missing terms and suggested master updates in the report for the coordinator instead of writing them. Use absolute script paths from this skill's directory.
+
 ## Copies
 
 1. Start each job from the best existing copy: score the master and every copy in `resumes/tailored/` against this posting with `keyword_coverage.py`, and copy the highest scorer into the new folder. Use the master when nothing beats it. Never tailor an old copy in place.

@@ -38,7 +38,7 @@ python3 tests/e2e/codex_run.py --workspace /tmp/job-agent-codex-submit --mode su
 
 The runner creates the mock profile and a separate headless Chrome on free localhost ports, then invokes `codex exec` with one browser server for that process. It ignores user configuration while retaining saved CLI authentication, disables subagents, permits writes only within the selected sandbox roots, and authorizes this test server's browser calls. Network access is enabled for local mock services and resume tooling. This is a test configuration, not an unattended production runner or a network isolation boundary. No changes are made to saved MCP configuration, and no real accounts or employers are used. The fake world's social-only link must be rejected without opening it.
 
-The default timeout is 30 minutes per Codex turn (`--timeout` overrides it). Logs, final messages, an independent live-form probe and `validation-<stage>.json` remain in the test workspace. The runner shuts down only its own Chrome PID and mock server when it finishes, including failures. Production filled and parked tabs must remain open; test cleanup is separate.
+The direct CLI test timeout is 30 minutes per Codex turn (`--timeout` overrides it). The native runner uses its profile's run/worker timeouts. Logs, final messages, an independent live-form probe and `validation-<stage>.json` remain in the test workspace. The runner shuts down only its own Chrome PID and mock server when it finishes, including failures. Production filled and parked tabs must remain open; test cleanup is separate.
 
 - **dry-run:** the saved profile deliberately has `auto_submit: true` and `dry_run: false`. The task requests a dry run without changing those preferences. Acme and Globex must remain Ready, Initech must be parked, no final submit attempt or receipt may exist, and an independent read-only MCP probe must find the completed forms still open. The resume gate must verify for both Ready rows.
 - **submit:** only mock submissions are authorized. The existing `applied` checks must pass, then two further Codex turns run status-sync after injected assessment/interview mail and a later rejection. Both `synced` and `final` checks must pass. An unrelated browser target must survive the application run without navigation or closure.
@@ -78,3 +78,17 @@ python3 tests/e2e/rig.py check  --workspace $W --stage final
 A pass means: Acme Robotics and Globex were submitted once each with the fake identity and have receipt IDs from the mock inbox; Globex was entered through Sign in with Google; Initech is `Needs you: captcha` with a notification; Umbrella, Hooli and Vandelay have no rows, the seeded Wayne and Stark rows are unchanged, and no cut job's form was touched; each row's `resume_used` is the absolute path of the uploaded PDF and exists; the required essay was drafted within its limit and names no number, employer or tool absent from the master resume; no Enter, Escape or CAPTCHA click happened; after the syncs the rows read Assessment then Rejected (Acme) and Interview (Globex), with the read-back path still in `notes`.
 
 Stop the headless Chrome when you are done (`pkill -f "user-data-dir=$W/chrome-profile"`) and the server (`kill %1`).
+
+### Native runner and parallel-worker checks
+
+Add `--runtime` to exercise the production scheduled invocation path, or `--parallel` to exercise prepare, isolated fill workers and coordinator review:
+
+```bash
+python3 tests/e2e/codex_run.py --workspace /tmp/job-agent-native --mode dry-run --runtime
+python3 tests/e2e/codex_run.py --workspace /tmp/job-agent-parallel --mode dry-run --parallel
+python3 tests/e2e/codex_run.py --workspace /tmp/job-agent-parallel-submit --mode submit --parallel
+```
+
+These options set the fake profile's dedicated-browser approval, interval and zero jitter, and call the same native runner used by a local scheduler. They do not install a scheduler. The native runner holds the run lock, so its coordinator must not acquire or release that lock. Parallel workers each get a separate Codex/MCP process and a unique writable directory. Only the coordinator reviews live forms and updates queue/tracker state; workers never submit. The independent live-form probe and existing dry-run or submission/status checks still apply.
+
+Unit tests also exercise active-lock ownership, failure/timeout cleanup, schedule file generation without activation, bounded worker concurrency, queue membership validation and rejection of wrong-job or invalid-gate reports. Use a new workspace for each integration run; retain failure logs rather than editing the grader or receipts.

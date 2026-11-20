@@ -34,7 +34,7 @@ def free_port() -> int:
 
 
 def codex_command(ws: Path, port: int, label: str) -> list[str]:
-    args = ["-y", "chrome-devtools-mcp@1.10.1",
+    args = ["--prefer-offline", "-y", "chrome-devtools-mcp@1.10.1",
             f"--browser-url=http://127.0.0.1:{port}",
             "--no-usage-statistics", f"--workspace={ws}"]
     return ["codex", "exec", "--ignore-user-config", "--ephemeral", "--json",
@@ -76,6 +76,8 @@ def main() -> int:
     ap.add_argument("--workspace", required=True, help="New or empty test-only directory")
     ap.add_argument("--mode", choices=("dry-run", "submit"), default="dry-run")
     ap.add_argument("--timeout", type=int, default=1800, help="Seconds per Codex turn")
+    ap.add_argument("--runtime", action="store_true", help="Validate the production scheduled-runner path")
+    ap.add_argument("--parallel", action="store_true", help="Use the native runner with isolated fill workers")
     args = ap.parse_args()
     ws = Path(args.workspace).expanduser().resolve()
     if ws.exists() and any(ws.iterdir()):
@@ -96,6 +98,12 @@ def main() -> int:
     text = prefs.read_text().replace("  mode: main ", "  mode: dedicated ", 1)
     text = text.replace("  port: 9333 ", f"  port: {browser_port} ", 1)
     text = text.replace("python_cmd: python3 ", f"python_cmd: {json.dumps(sys.executable)} ", 1)
+    if args.runtime or args.parallel:
+        text = text.replace("  browser_tools_approved: false", "  browser_tools_approved: true", 1)
+        text = text.replace("  every_hours: 0 ", "  every_hours: 3 ", 1)
+        text = text.replace("  jitter_minutes: 15 ", "  jitter_minutes: 0 ", 1)
+    if args.parallel:
+        text = text.replace("  execution: sequential", "  execution: parallel", 1)
     prefs.write_text(text)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     env = dict(os.environ, JOB_AGENT_HOME=str(ws))
@@ -122,7 +130,14 @@ def main() -> int:
                 if args.mode == "dry-run" else
                 "Run $job-run once. The mock queue and auto-submit are authorized for this test.")
         print(f"Running Codex {args.mode}; evidence: {ws}", flush=True)
-        run_agent(ws, browser_port, "run", context + mode, args.timeout)
+        if args.runtime or args.parallel:
+            sys.path.insert(0, str(REPO / "skills/job-run/scripts"))
+            import codex_runtime
+            result = codex_runtime.run_once(ws, dry_run=args.mode == "dry-run", scheduled=True, isolated=True)
+            if result["exit_code"]:
+                raise RuntimeError(result)
+        else:
+            run_agent(ws, browser_port, "run", context + mode, args.timeout)
         if prefs.read_text() != text:
             raise RuntimeError("the run changed saved preferences instead of using run-scoped settings")
         (ws / "live-forms.json").write_text(json.dumps(

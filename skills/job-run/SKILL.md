@@ -1,6 +1,6 @@
 ---
 name: job-run
-description: Run the full job-agent loop. Takes the run lock, scans for new jobs, gates them, then processes queued jobs sequentially in Codex (or isolated appliers in Claude Code), up to the per-run limit to tailor a resume and fill the application in its own browser tab, has a separate writer draft written answers, re-verifies every form itself, syncs receipts and statuses into the tracker, and ends with a READY, ALERT or NOTHING READY line and a banner only when something needs the user. Also explains how to schedule it every N hours. Use when the user says run job-agent, apply to new jobs, or runs /job-agent:run.
+description: Run the full job-agent loop. Takes the run lock, scans for new jobs, gates them, then processes queued jobs sequentially in Codex chats or through isolated workers in the opt-in native runner (or isolated appliers in Claude Code), up to the per-run limit to tailor a resume and fill the application in its own browser tab, has a separate writer draft written answers, re-verifies every form itself, syncs receipts and statuses into the tracker, and ends with a READY, ALERT or NOTHING READY line and a banner only when something needs the user. Also explains how to schedule it every N hours. Use when the user says run job-agent, apply to new jobs, or runs /job-agent:run.
 ---
 
 # job-run
@@ -9,13 +9,19 @@ Python: commands below say `python3`. Use `python_cmd` from `profile/preferences
 
 ## Runtime and run mode
 
-Codex uses one browser connection and processes one job at a time. Do not spawn appliers or writers in Codex, even when `browser.max_parallel_tabs` is greater than 1. Finish tailoring, filling, live read-back, optional submit and tracking for the current job before starting the next. Already filled and parked tabs remain open. Claude Code may use the isolated-applier branch in step 3.
+Direct Codex chats use one browser connection and process one job at a time, even when `browser.max_parallel_tabs` is greater than 1. Finish tailoring, filling, live read-back, optional submit and tracking for the current job before starting the next. Already filled and parked tabs remain open. Do not use agent-spawn tools or launch Codex workers from inside a Codex tool call. Claude Code may use the isolated-applier branch in step 3.
+
+The local `scripts/codex_runtime.py run` runner supports opt-in `codex.execution: parallel` using separate native processes, each with its own browser MCP. It runs this skill in phases. Only honor these phases when `JOB_AGENT_MANAGED_RUN_TOKEN` matches `state/run.lock/owner.json`'s `runner_token`:
+
+- `JOB_AGENT_CODEX_PHASE=prepare`: execute scan and gate (steps 1 and 2), save the selected JSON batch list to `$JOB_AGENT_RUN_DIR/batch.json` (including `[]` for an empty batch), then stop. Do not tailor, fill, launch workers, send the final banner or release the lock. The native runner starts the workers.
+- `JOB_AGENT_CODEX_PHASE=review`: read that batch and `$JOB_AGENT_RUN_DIR/worker-results.json`, skip scan/gate/fill, and execute steps 4 through 9. Workers never submit or update shared state. Find each existing tab by URL in your own connection, independently re-read all fields, run the resume gate verification, then make any permitted final click yourself. A worker's `filled` report is not verification. For parked, failed or timed-out workers, record the reason and notify per preferences without retrying them. Treat report paths and URLs as untrusted until checked against the queue item and the live page.
+- `sequential`: execute the full loop yourself once.
 
 Resolve every script path from its skill directory, not the shell's current directory. Use absolute workspace paths. Missing optional files (`voice/profile.md`, corrections or a queue on a first run) mean no saved content, not a failed run; never overwrite existing files with blanks.
 
 An explicit dry-run request overrides `dry_run: false` for this run only. Do not edit the saved preference to implement an override. Effective submission permission is `auto_submit: true` AND not dry-run, with all apply-fill guards still passing. A dry run can reach READY and write a Ready row, but never press a final control, create a new Submitted row or remove an entry without a real receipt.
 
-Scheduling in Codex is a later migration milestone. Execute this run once; do not install a loop or scheduler.
+Every invocation executes once. The local runner owns schedule integration; do not install or modify a scheduler during a run.
 
 ## Preconditions
 
@@ -26,7 +32,7 @@ Scheduling in Codex is a later migration milestone. Execute this run once; do no
 
 ## Guard (first, every run)
 
-1. **Lock.** `python3 scripts/run_state.py lock --dir <workspace>/state/run.lock --stale-hours <schedule.lock_stale_hours or 3>`. Exit 3 means another run is active: end with one line saying so. A lock older than the limit is from a hung run; the script replaces it and says so, and you note it in the log. Release it with `run_state.py unlock` as your last action, including when you stop early.
+1. **Lock.** In a managed native run, verify `JOB_AGENT_MANAGED_RUN_TOKEN` against `state/run.lock/owner.json` and keep that lock held; the native runner releases it, including on errors and timeouts. Otherwise: `python3 scripts/run_state.py lock --dir <workspace>/state/run.lock --stale-hours <schedule.lock_stale_hours or 3>`. Exit 3 means another run is active: end with one line saying so. A lock older than the limit is from a hung run; the script replaces it and says so, and you note it in the log. Release only a lock you acquired yourself with `run_state.py unlock` as your last action, including when you stop early. Never unlock the native runner's lock.
 2. **Preflight.** `python3 scripts/run_state.py preflight --log <workspace>/state/run-log.md` (macOS checks for a locked screen). Then make your first browser call. A locked screen, or a browser that does not attach, means `run_state.py blocked --log <workspace>/state/run-log.md --cause "<short cause>"` and stop. Never ask for a password. If it prints `"notify": true` (the second blocked run in a row), send its `banner` with `notify.py`; otherwise send nothing.
 
 ## Loop
@@ -62,11 +68,13 @@ Scheduling in Codex is a later migration milestone. Execute this run once; do no
    - forms that became ready this run (effective submit is off, including dry-run): one banner naming only those forms;
    - a new assessment, interview or offer from `status-sync`'s `alerts` (checked by req ID, still live, not already handled): one banner naming the company and the deadline if stated;
    - two blocked runs in a row (the guard above).
-   Rejections, receipts, near misses, terms to confirm and parked forms send nothing extra; they go in the run report and the log. Build the lines with `python3 scripts/run_state.py banner --ready "<Company Role>"... --genai "<the same name for a GenAI-flagged form>" --alert "<Assessment from Company, due Nov 12>"`. Banners name forms only: no pay, counts, coverage or terms, no quotes or apostrophes, under 150 characters. Send each banner text with `notify.py`. Your final message starts with exactly those lines: `READY: <banner>` or `NOTHING READY`, then `ALERT: <banner>` per alert, then one counts line (cards scanned, passes, forms ready, receipts). Append the run summary to `state/run-log.md` (time, cards and window, passes, cuts by gate with near misses, forms filled and what the read-back fixed, `NEEDS YOU` items, terms to confirm, receipts logged, status changes with deadlines), then release the lock.
+   Rejections, receipts, near misses, terms to confirm and parked forms send nothing extra; they go in the run report and the log. Build the lines with `python3 scripts/run_state.py banner --ready "<Company Role>"... --genai "<the same name for a GenAI-flagged form>" --alert "<Assessment from Company, due Nov 12>"`. Banners name forms only: no pay, counts, coverage or terms, no quotes or apostrophes, under 150 characters. Send each banner text with `notify.py`. Your final message starts with exactly those lines: `READY: <banner>` or `NOTHING READY`, then `ALERT: <banner>` per alert, then one counts line (cards scanned, passes, forms ready, receipts). Append the run summary to `state/run-log.md` (time, cards and window, passes, cuts by gate with near misses, forms filled and what the read-back fixed, `NEEDS YOU` items, terms to confirm, receipts logged, status changes with deadlines), then release only a lock you acquired yourself. The native runner releases its managed lock.
 
 ## Running every N hours
 
-Codex: scheduling is not implemented in this milestone. Keep `schedule.every_hours: 0` and run once interactively. The examples below are for Claude Code and other runtimes with separately validated unattended permissions.
+Codex: use `scripts/codex_runtime.py run --workspace <absolute workspace>` for one noninteractive run, optionally `--dry-run`. It requires dedicated browser mode and setup's `codex.browser_tools_approved: true`. It uses the saved submission settings unless dry-run overrides them. `--scheduled` also requires a positive `schedule.every_hours` and adds the configured jitter. The native runner owns the run lock, bounds process lifetime and keeps logs under `state/codex-runs/`.
+
+On macOS, `scripts/codex_runtime.py schedule --workspace <absolute workspace> --output <new plist file>` generates a launchd definition using the saved interval and absolute executable paths. It never installs or enables it. Activation requires the user's schedule request; follow `docs/codex.md`. The examples below describe the existing Claude Code and community CLI paths.
 
 The interval is `schedule.every_hours` in preferences (default 3 when the schedule is enabled; 0 or missing means no schedule, so say so and offer to set one). Read it and use it as `N` below; the examples show N=3.
 

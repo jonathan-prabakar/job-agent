@@ -83,6 +83,8 @@ Your own safety rules, or the user's tool settings, may stop you from typing pas
 
 ## Parking (CAPTCHA, bot checks, declined steps and anything else for the human)
 
+With `worker_mode: true`, leave the tab open and return its URL and exact reason to the coordinator. Do not write the queue, tracker or portal index, send notifications, or use credential mode; these workers have read-only profile access. The coordinator handles parking records and notifications.
+
 Never solve, bypass or work around a CAPTCHA or bot check, and never use a solving service. Parking is the same for every reason, including a step you declined or could not do:
 
 1. Leave the tab open with everything filled so far. Do not reload or close it.

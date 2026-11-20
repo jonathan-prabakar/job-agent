@@ -94,7 +94,7 @@ browser:
   mode: main             # main: your own signed-in Chrome (--autoConnect) | dedicated: separate job-agent profile
   port: 9333             # dedicated mode only; not 9222, which your main Chrome may use
   auto_allow: false      # opt-in helper that presses Chrome's Allow prompt for the agent's own connects. Read the README first
-  max_parallel_tabs: 3  # isolated Claude appliers; Codex always processes one job at a time
+  max_parallel_tabs: 3  # isolated workers only; direct Codex chats remain sequential
   max_forms_per_run: 10  # the rest stay queued for the next run
 
 portal_accounts:
@@ -137,3 +137,10 @@ schedule:
   every_hours: 0         # 0: no schedule. Setup sets 3 (or your choice) when you turn it on; job-run prints the /loop, scheduled-task and cron lines from it
   jitter_minutes: 15     # start each scheduled run up to this many minutes late, so runs do not land on the hour
   lock_stale_hours: 3    # a run lock older than this is from a hung run and is replaced
+
+# Local Codex runner. These are opt-in; ordinary chats still run sequentially.
+codex:
+  execution: sequential  # sequential | parallel (native local runner only)
+  browser_tools_approved: false  # setup explains and records approval for dedicated browser operation
+  runner_timeout_minutes: 60     # whole run, including all worker phases; 1 to 120
+  worker_timeout_minutes: 20     # per worker; 1 to 60

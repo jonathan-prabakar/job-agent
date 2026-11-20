@@ -16,6 +16,8 @@ Read `references/ats-gotchas.md` before touching a Workday, Greenhouse, Lever, P
 
 Run-scoped inputs from `job-run` override saved defaults: an explicit dry-run request forbids submission, and `defer_submit: true` means return the filled form for the orchestrator's live read-back before any final click. Do not change saved preferences to implement these inputs.
 
+With `worker_mode: true`, never press a final control or update the queue, tracker, locks, shared profile or notifications. Return the filled/parked report and keep the tab open; the coordinator applies those state changes and performs live read-back. This rule also applies when calling portal-auth. Keep all answer files and reports inside the assigned worker output directory. In worker mode, `written_answers: writer` uses the draft branch in this same process; never spawn a writer. `written_answers: leave` still leaves boxes empty. Missing facts are returned as parked rather than written into the master.
+
 ## Tab discipline
 
 - Open the application once with `new_page` (background). Note your tab's page id from the result or `list_pages`. Pass it as `pageId` on every tool that takes one (chrome-devtools-mcp 1.10.1 requires it on click, fill, type_text, press_key, take_snapshot, upload_file and evaluate_script). Never select, close or navigate a tab you did not open.
@@ -61,7 +63,7 @@ Run-scoped inputs from `job-run` override saved defaults: an explicit dry-run re
 
 ## Submit
 
-First check effective dry-run and `defer_submit`. Dry-run always forbids the final click, even with `auto_submit: true`. With `defer_submit: true`, return after filling and let `job-run` do its own read-back and guarded final click. These modes still require the resume gate and all field checks before calling the form ready. Never report an unsubmitted form as Submitted.
+First check `worker_mode`, effective dry-run and `defer_submit`. Worker mode always forbids the final click. Dry-run always forbids the final click, even with `auto_submit: true`. With `defer_submit: true`, return after filling and let `job-run` do its own read-back and guarded final click. These modes still require the resume gate and all field checks before calling the form ready. Never report an unsubmitted form as Submitted.
 
 Default (effective submit is off, including dry-run): stop when only the final control remains. Report its exact label. Treat every control labelled Submit, Apply, Send, Finish, or a Next on a flow known to record early, as final. A button labelled Submit that only saves a step and continues still counts as final for you: say in the report which it looks like (a step indicator such as "Step 2 of 4", or nothing after it) and let the user press it. Set the queue entry to `FILLED` (`../job-gate/scripts/apply_queue.py set --state FILLED`), and add a tracker row with status `Ready` unless `tracker.rows_for_unsubmitted` is false.
 
