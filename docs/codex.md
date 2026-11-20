@@ -1,6 +1,6 @@
 # Codex setup
 
-This fork exposes all ten job-agent skills to Codex and provides a Codex setup path. Full browser execution, unattended runs and parallel workers are later migration milestones. Setup checks alone do not mean that an application run has passed.
+This fork exposes all ten job-agent skills to Codex, provides runtime-aware setup and processes jobs sequentially. Validate the browser workflow against the local mock ATS before a real dry run. Unattended runs and parallel workers are later migration milestones. Setup checks alone do not mean that an application run has passed.
 
 ## Open the repository
 
@@ -76,4 +76,8 @@ Run the discovery checks from the repository root:
 python3 -m unittest discover -s tests -p test_codex_discovery.py
 ```
 
-The next migration milestone uses the [local mock ATS rig](../tests/e2e/README.md) to validate sequential browser execution, typing, resume uploads, read-back, parking and receipt tracking. After that passes, start with one real dry-run application that stops at Submit. Do not infer browser success from unit tests.
+Run the opt-in [Codex integration runner](../tests/e2e/README.md#codex-browser-validation) in a new test workspace. It uses fake data, a throwaway headless Chrome and a process-local MCP configuration. It does not change your saved browser connection. Dry-run validation checks the live forms independently through MCP; mock-submit validation checks receipts and the status-sync chain.
+
+After local validation passes, ask `$job-run in dry-run mode, one job at a time` for one real posting. Codex uses one browser connection and completes each job's tailoring, fill, live read-back and tracking before moving on. A saved `max_parallel_tabs` above 1 does not enable Codex workers. With `written_answers: writer`, the current agent drafts the answers in a separate pass. Missing required facts park that job for the summary rather than blocking other applications.
+
+A dry-run request overrides saved `dry_run: false` for that run without editing the profile. The agent records Ready rows and a read-back file, leaves forms open at Submit, and never creates a submission or removes a queue entry without a receipt. Scheduling remains disabled. Do not infer success on real ATS websites from a mock test.

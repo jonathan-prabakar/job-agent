@@ -6,7 +6,7 @@ Everything runs on 127.0.0.1. Nothing is sent to a real employer.
   python3 tests/e2e/rig.py setup  --workspace DIR [--port 18765]   write a fake profile wired to the mock world
   python3 tests/e2e/rig.py serve  --workspace DIR [--port 18765]   run the mock feed, ATS, sign-in, inbox and ntfy
   python3 tests/e2e/rig.py inject --workspace DIR --kind oa|interview|rejection --company NAME
-  python3 tests/e2e/rig.py check  --workspace DIR --stage applied|synced|final
+  python3 tests/e2e/rig.py check  --workspace DIR --stage dryrun|applied|synced|final
 
 See tests/e2e/README.md for the agent run that sits between setup and check.
 Standard library only.
@@ -139,10 +139,71 @@ def _notifications(ws: Path) -> list[dict]:
 
 
 EXPECT = {
+    "dryrun": {"Acme Robotics": "Ready", "Globex": "Ready", "Initech": "Needs you: captcha"},
     "applied": {"Acme Robotics": "Submitted", "Globex": "Submitted", "Initech": "Needs you: captcha"},
     "synced": {"Acme Robotics": "Assessment", "Globex": "Interview", "Initech": "Needs you: captcha"},
     "final": {"Acme Robotics": "Rejected", "Globex": "Interview", "Initech": "Needs you: captcha"},
 }
+
+
+def check_dryrun(ws: Path, rows: dict, events: list[dict]) -> list[str]:
+    """Check ready rows against an independent, read-only MCP probe of live forms."""
+    problems = []
+    if any(e["kind"] in ("submitted", "submit_rejected") for e in events):
+        problems.append("dry run pressed a final submit control")
+    if mock_inbox.load(ws_paths(ws)["inbox"]):
+        problems.append("dry run produced email receipts")
+    live_path = ws / "live-forms.json"
+    try:
+        live = json.loads(live_path.read_text())
+    except (OSError, ValueError):
+        return problems + ["missing or unreadable independent live-form evidence"]
+    for company, prefix in (("Acme Robotics", "/gh/"), ("Globex", "/wd/")):
+        row = rows.get(company, {})
+        form = next((f for f in live if company in f.get("body", "")
+                     and prefix in f.get("url", "")), None)
+        if not form:
+            problems.append(f"{company}: no live form left open")
+            continue
+        fields = form.get("fields", {})
+        identity = fields if prefix == "/gh/" else form.get("review", {})
+        if identity.get("email") != "test@example.com" or identity.get("first_name") != "Test":
+            problems.append(f"{company}: live form does not use the fake test identity")
+        if prefix == "/gh/":
+            required = ["first_name", "last_name", "email", "phone", "why_us",
+                        "degree", "sponsorship", "how_heard"]
+            errors = mock_ats.validate(dict(fields, _trusted=form.get("trusted", []),
+                                           _resume=form.get("resume")),
+                                       required, [], True, True)
+            if errors:
+                problems.append(f"{company}: live form is incomplete or untrusted: {errors}")
+            essay = fields.get("why_us", "")
+            if len(essay) > 1000:
+                problems.append(f"{company}: essay exceeds its limit")
+        elif "Step 3 of 3" not in form.get("body", ""):
+            problems.append(f"{company}: did not reach the final review step")
+        final_label = "Submit application" if prefix == "/gh/" else "Submit"
+        if final_label not in form.get("body", ""):
+            problems.append(f"{company}: final submit control is missing")
+        note = re.search(r"read-back: ([^|]+)", row.get("notes", ""))
+        if not note or not Path(note.group(1).strip()).is_file():
+            problems.append(f"{company}: missing saved read-back")
+        pdf = Path(row.get("resume_used", ""))
+        if not pdf.is_absolute() or not pdf.is_file():
+            problems.append(f"{company}: missing absolute resume path")
+        else:
+            uploaded = (form.get("resume") or {}).get("name") if prefix == "/gh/" else identity.get("resume")
+            if uploaded != pdf.name:
+                problems.append(f"{company}: live attached resume differs from tracker")
+            if prefix == "/gh/" and (form.get("resume") or {}).get("size") != pdf.stat().st_size:
+                problems.append(f"{company}: live attached resume size differs from the gated PDF")
+            sys.path.insert(0, str(REPO / "skills/tailor-resume/scripts"))
+            import resume_gate
+            if not resume_gate.verify(pdf)[0]:
+                problems.append(f"{company}: resume gate does not verify")
+    if not any("Verify you are human" in f.get("body", "") and "/initech/" in f.get("url", "") for f in live):
+        problems.append("parked CAPTCHA tab was not left open")
+    return problems
 
 
 ESSAY_STOP = {"I", "I'm", "I've", "My", "The", "A", "An", "And", "But", "So", "At", "In", "On", "As", "It", "This", "That",
@@ -203,6 +264,18 @@ def check(ws: Path, stage: str) -> list[str]:
                      - {"Acme Robotics", "Globex"})
     if touched:
         problems.append(f"the agent worked on forms the gate should have cut: {touched}")
+    if stage == "dryrun":
+        problems.extend(check_dryrun(ws, by_company, events))
+        for bad in ("enter_pressed", "escape_pressed", "captcha_touched"):
+            if any(e["kind"] == bad for e in events):
+                problems.append(f"dry run recorded {bad}")
+        if not any(e["kind"] == "captcha_shown" for e in events):
+            problems.append("the CAPTCHA page was never opened")
+        if not any(e["kind"] == "signed_in" and e.get("method") == "google_sso" for e in events):
+            problems.append("the Workday-shaped flow was not entered through Sign in with Google")
+        if not any("Initech" in n.get("message", "") for n in _notifications(ws)):
+            problems.append("no notification mentions the parked Initech job")
+        return problems
     if sorted(receipts) != ["Acme Robotics", "Globex"]:
         problems.append(f"submissions on the mock ATS: {sorted(receipts)}, expected Acme Robotics and Globex")
     if len(submitted) != len(receipts):
