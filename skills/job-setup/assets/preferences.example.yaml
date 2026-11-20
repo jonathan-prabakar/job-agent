@@ -94,7 +94,7 @@ browser:
   mode: main             # main: your own signed-in Chrome (--autoConnect) | dedicated: separate job-agent profile
   port: 9333             # dedicated mode only; not 9222, which your main Chrome may use
   auto_allow: false      # opt-in helper that presses Chrome's Allow prompt for the agent's own connects. Read the README first
-  max_parallel_tabs: 3
+  max_parallel_tabs: 3  # isolated Claude appliers; Codex always processes one job at a time
   max_forms_per_run: 10  # the rest stay queued for the next run
 
 portal_accounts:

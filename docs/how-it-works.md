@@ -24,7 +24,7 @@ The README is the short version. This page has the detail: each skill, the brows
 | Tailor | `tailor-resume` | Copies your master, picks the best entries and bullets, reports keyword coverage before and after, asks you about missing terms |
 | Fill | `apply-fill` | Fills the form in its own tab with real clicks and typing, uploads the resume, checks every field |
 | Sign in | `portal-auth` | Tries Sign in with Google, then Microsoft, then LinkedIn, then a login Chrome already saved. Otherwise it parks the job for you |
-| Run | `job-run` | Runs the loop, one applier per job, each with its own browser connection, then re-checks every form |
+| Run | `job-run` | Runs sequentially in Codex, or with isolated appliers in Claude Code, then re-checks every form |
 | Track | `tracker` | Local CSV by default, or Notion or Google Sheets. Finds the receipt email after a submit |
 | Sync | `status-sync` | Reads new email for assessments, interviews, offers and rejections and updates each row |
 
@@ -69,6 +69,8 @@ python3 skills/tailor-resume/scripts/resume_gate.py --pdf tailored.pdf --resume 
 The gate prints `VERDICT: PASS` only when the content check and the layout check (one page filled to full height, bullets at most 2 lines with every line at least 95% full, no orphan lines, uniform spacing) are clean. It renders three PNGs to look at, and writes a receipt that `resume_gate.py --verify` checks before any upload.
 
 ## Browser
+
+Codex uses one browser connection and fills one job at a time. It performs a fresh live read-back before any guarded final click. It does not install Claude applier files. See [Codex setup and local validation](codex.md).
 
 **Default: your own Chrome.** The agent works in the Chrome you already use, with your existing logins, through [chrome-devtools MCP](https://github.com/ChromeDevTools/chrome-devtools-mcp) and its `--autoConnect` option.
 
@@ -154,7 +156,7 @@ The trade-off: auto-submit saves you the review step, but a wrong answer, a bad 
 ## Scheduling
 
 - Claude Code, in a session: `/loop 4h /job-agent:run` repeats while the session is open.
-- A local scheduled task, or cron with a headless CLI such as `claude -p` or `codex exec`. A cloud routine cannot reach your Chrome.
+- A local scheduled task, or cron with a validated headless CLI such as `claude -p` (Codex scheduling is a later migration milestone). A cloud routine cannot reach your Chrome.
 
 Each run takes a lock, so two runs never overlap; a lock older than 3 hours is from a hung run and is replaced. A run fills at most `browser.max_forms_per_run` forms (default 10) and leaves the rest queued. A locked screen or a browser that does not attach logs `BLOCKED` and stops; two blocked runs in a row send you a notification. Each run ends with `READY: <forms>`, `ALERT: <assessment, interview or offer>` or `NOTHING READY`, and a notification goes out only for the first two.
 

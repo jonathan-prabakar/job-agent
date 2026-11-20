@@ -25,6 +25,26 @@ python3 -m unittest discover -s tests
 
 `tests/e2e/test_rig.py` starts the mock world on a free port and plays the browser with plain HTTP. It then runs the real tracker, receipt, notify and status-sync scripts against what the mock world recorded, and the same `rig.py check` stages the agent run is graded by. No browser needed.
 
+## Codex browser validation
+
+This opt-in integration test runs Codex itself with the repository's real skills and the pinned browser MCP. It needs a signed-in Codex CLI, Node.js, Chrome, tectonic and PyMuPDF in the Python environment running the test. It uses the default model, so it consumes Codex usage. The deterministic unit tests above do not make model calls.
+
+From the repo root, choose a **new, empty workspace** for each run:
+
+```bash
+python3 tests/e2e/codex_run.py --workspace /tmp/job-agent-codex-dryrun --mode dry-run
+python3 tests/e2e/codex_run.py --workspace /tmp/job-agent-codex-submit --mode submit
+```
+
+The runner creates the mock profile and a separate headless Chrome on free localhost ports, then invokes `codex exec` with one browser server for that process. It ignores user configuration while retaining saved CLI authentication, disables subagents, permits writes only within the selected sandbox roots, and authorizes this test server's browser calls. Network access is enabled for local mock services and resume tooling. This is a test configuration, not an unattended production runner or a network isolation boundary. No changes are made to saved MCP configuration, and no real accounts or employers are used. The fake world's social-only link must be rejected without opening it.
+
+The default timeout is 30 minutes per Codex turn (`--timeout` overrides it). Logs, final messages, an independent live-form probe and `validation-<stage>.json` remain in the test workspace. The runner shuts down only its own Chrome PID and mock server when it finishes, including failures. Production filled and parked tabs must remain open; test cleanup is separate.
+
+- **dry-run:** the saved profile deliberately has `auto_submit: true` and `dry_run: false`. The task requests a dry run without changing those preferences. Acme and Globex must remain Ready, Initech must be parked, no final submit attempt or receipt may exist, and an independent read-only MCP probe must find the completed forms still open. The resume gate must verify for both Ready rows.
+- **submit:** only mock submissions are authorized. The existing `applied` checks must pass, then two further Codex turns run status-sync after injected assessment/interview mail and a later rejection. Both `synced` and `final` checks must pass. An unrelated browser target must survive the application run without navigation or closure.
+
+If Codex is not authenticated, run `codex login` yourself and rerun in a new workspace. Do not copy authentication files into the test folder. If the model encounters a browser or resume gate failure, retain the failure evidence and fix the underlying cause; never weaken the grader or fabricate a receipt to get a pass.
+
 ## Agent run (manual)
 
 This drives the real skills through your agent and a real Chrome, all on localhost. Use a throwaway Chrome profile so your own browser is never involved.

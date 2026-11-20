@@ -31,7 +31,7 @@ job-agent reads new postings from your JobRight feed, builds a one-page resume f
 
 ## Setup
 
-**Codex:** this fork now includes repository skill discovery and setup instructions. Open the clone as a Codex project and follow [Codex setup](docs/codex.md). Full browser-run validation, scheduling and parallel workers are later migration milestones. The instructions below describe the existing Claude Code path.
+**Codex:** this fork includes skill discovery, runtime-aware setup and sequential execution. Open the clone as a Codex project and follow [Codex setup](docs/codex.md). Use the local mock ATS checks before a real dry run. Scheduling and parallel Codex workers are later migration milestones. The instructions below describe the existing Claude Code path.
 
 You need a Mac, [Claude Code](https://claude.com/claude-code), Google Chrome 144 or later, Node.js 20.19 or later and Python 3.9 or later. New to any of these? [Getting started](docs/getting-started.md) installs each one.
 

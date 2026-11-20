@@ -10,7 +10,7 @@ Only install or run the application workflow when the user asks to set up or use
 
 1. **Install the skills** for your agent:
    - Claude Code: `/plugin marketplace add jonathan-prabakar/job-agent` then `/plugin install job-agent@job-agent`.
-   - Codex: open this clone as the project. The ten skills are exposed through `.agents/skills/`; no Claude installation is needed. Follow `docs/codex.md` for browser and connector setup. Discovery and setup are the first migration milestone; the complete Codex browser workflow is not yet validated.
+   - Codex: open this clone as the project. The ten skills are exposed through `.agents/skills/`; no Claude installation is needed. Follow `docs/codex.md` for browser and connector setup. Codex processes applications sequentially; use the local mock ATS validation in `tests/e2e/README.md` before a real dry run. Scheduling and parallel Codex workers are not part of this milestone.
    - Other agents (community-supported, not tested end to end): `npx skills add jonathan-prabakar/job-agent`, or clone the repo and read `skills/*/SKILL.md` directly.
    - If installed with npx skills add, skills live in .agents/skills/, and add the browser MCP yourself: `npx -y chrome-devtools-mcp@1.10.1 --autoConnect` (Codex: `codex mcp add job-agent-browser -- npx -y chrome-devtools-mcp@1.10.1 --autoConnect`). Also pass `--no-usage-statistics --workspace=$HOME/.job-agent` so it sends no usage data and can upload resumes from the workspace.
 2. **Setup:** follow `skills/job-setup/SKILL.md`. It writes the user's profile into the workspace (`$JOB_AGENT_HOME`, default `~/.job-agent/`) and attaches to the user's own Chrome with chrome-devtools MCP `--autoConnect`.
@@ -28,7 +28,7 @@ Before step 1, check the prerequisites yourself: `node --version` (20.19 or late
 | `skills/tailor-resume` | Build a truthful one-page copy from the master resume, with coverage before and after |
 | `skills/your-voice` | Every written answer: facts only, two drafts, built-in humanize pass, optional voice profile, self-audit, `writecheck.py` |
 | `skills/apply-fill` | Fill one application in its own tab and stop at Submit |
-| `skills/job-run` | Run the loop, one subagent per job, then re-verify and track |
+| `skills/job-run` | Run the loop sequentially in Codex, then re-verify and track |
 | `skills/tracker` | CSV, Notion or Sheets tracker plus Gmail receipts |
 | `skills/status-sync` | Update statuses from assessment, interview, offer and rejection emails |
 | `skills/portal-auth` | Sign in to the user's job-portal accounts with SSO or a browser-saved login; optional credential mode for the rest |
@@ -41,7 +41,7 @@ Before step 1, check the prerequisites yourself: `node --version` (20.19 or late
 - Never solve or bypass a CAPTCHA or bot check. Park the tab (left open and filled), mark the row `Needs you: captcha`, notify the user, and move on. SSN and payment details always go to the user.
 - The user clicks Chrome's "Allow remote debugging?" prompt, unless they enabled the opt-in `auto_allow.py` helper.
 - Each parallel agent uses its own browser connection and its own tab.
-- Work only in tabs you opened. In the default mode this is the user's real browser.
+- Work only in tabs you opened. The sole read-only feed exception is `sources.jobright.use_open_tab: true`: read and scroll that feed without changing filters, typing or closing it. Read a second inbox tab only when the user explicitly authorizes that tab. In the default mode this is the user's real browser.
 - Never invent resume facts or application answers.
 - No LinkedIn or other social media automation. No private API scraping.
 - User data lives only in the workspace, never in this repo's tracked files.

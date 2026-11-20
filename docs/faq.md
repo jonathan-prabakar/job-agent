@@ -12,7 +12,7 @@ job-agent is free and MIT licensed. JobRight's free account works. The cost is y
 
 ## What does it cost in tokens?
 
-Each job runs in its own agent session that reads the page, tailors a resume and fills the form, so cost scales with how many jobs you run and how long each form is. On a Claude Pro or Max plan it counts toward your plan's usage limit, not a separate bill. To see your real number, do a dry run on a few jobs and check your usage before you schedule it.
+Codex processes each job sequentially in the current session; Claude Code can use a separate applier per job. Each job reads the page, tailors a resume and fills the form, so cost scales with how many jobs you run and how long each form is. On a Claude Pro or Max plan it counts toward your plan's usage limit, not a separate bill. To see your real number, do a dry run on a few jobs and check your usage before you schedule it.
 
 ## Does it work on Windows? Linux?
 
@@ -68,4 +68,4 @@ Stop your agent at any time; filled tabs stay open. A submitted application cann
 
 ## Which coding agents does it work with?
 
-Claude Code, including parallel appliers, one per job. Codex, Cursor and other agents that read skills can load them too and run one job at a time; first-class support for them is on the [roadmap](../README.md#roadmap).
+Claude Code, including parallel appliers, one per job. Codex has [setup and sequential browser validation](codex.md); unattended scheduling and isolated parallel workers are later milestones. Cursor and other agents that read skills remain community-supported.
